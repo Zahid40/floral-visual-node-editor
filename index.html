@@ -23,13 +23,8 @@
         stroke-width: 1.5 !important;
       }
       .react-flow__edge.animated .react-flow__edge-path {
-          stroke-dasharray: 5, 5;
-          animation: dashdraw .5s linear infinite;
-      }
-      @keyframes dashdraw {
-          to {
-              stroke-dashoffset: -10;
-          }
+          stroke: url(#animated-gradient) !important;
+          stroke-width: 2.5px !important;
       }
       .react-flow__attribution {
         display: none !important; /* Hide React Flow attribution */

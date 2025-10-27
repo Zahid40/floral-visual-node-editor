@@ -55,8 +55,13 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
             return { b64, mimeType: 'image/jpeg' };
         }
 
-        // Multi-modal generation (image + text)
-        const textParts = prompt ? [{ text: prompt }] : [];
+        // Multi-modal generation (image + text, or image + image)
+        let effectivePrompt = prompt;
+        if (images.length > 1 && !prompt) {
+            effectivePrompt = "Merge these images into a single, cohesive, professional-looking photograph. Blend the elements, styles, and subjects naturally.";
+        }
+        
+        const textParts = effectivePrompt ? [{ text: effectivePrompt }] : [];
         const imageParts = images.map(n => ({
             inlineData: {
                 data: n.data.content as string,
@@ -87,6 +92,28 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
             throw error;
         }
         throw new Error("Failed to generate from node inputs with Gemini API.");
+    }
+};
+
+
+export const generatePromptFromImage = async (image: Node<NodeData>): Promise<string> => {
+    if (!image.data.content || !image.data.mimeType) {
+        throw new Error("Image data is missing for prompt generation.");
+    }
+    try {
+        const imagePart = { inlineData: { data: image.data.content as string, mimeType: image.data.mimeType as string }};
+        const textPart = { text: "Describe this image in detail. Focus on the subject, style, composition, colors, and lighting. Formulate the description as a creative and vivid prompt for an AI image generator to recreate a similar image." };
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, textPart] },
+        });
+
+        return response.text.trim();
+
+    } catch (error) {
+        console.error("Error generating prompt from image:", error);
+        throw new Error("Failed to generate prompt from image with Gemini API.");
     }
 };
 

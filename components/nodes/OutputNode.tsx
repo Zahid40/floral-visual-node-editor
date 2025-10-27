@@ -1,6 +1,5 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { NodeProps, Handle, Position } from 'reactflow';
-import { CustomNode } from './CustomNode';
 import { NodeData, NodeType, AspectRatio } from '../../types';
 import { NodeIcon } from './NodeIcon';
 
@@ -15,28 +14,41 @@ const RegenerateIcon = () => (
 const AspectRatioSelector: React.FC<{ selected: AspectRatio, onSelect: (ar: AspectRatio) => void }> = ({ selected, onSelect }) => {
     const ratios: AspectRatio[] = ['1:1', '16:9', '9:16', '4:3', '3:4'];
     return (
-        <div className="p-2">
-            <div className="bg-[#111111] p-1 rounded-md flex items-center justify-center space-x-1">
-                {ratios.map(r => (
-                    <button
-                        key={r}
-                        onClick={() => onSelect(r)}
-                        className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${selected === r ? 'bg-gray-200 text-black font-bold' : 'text-gray-400 hover:bg-[#333]'}`}
-                    >
-                        {r}
-                    </button>
-                ))}
-            </div>
+        <div className="bg-[#111111] p-1 rounded-md flex items-center justify-center space-x-1">
+            {ratios.map(r => (
+                <button
+                    key={r}
+                    onClick={() => onSelect(r)}
+                    className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${selected === r ? 'bg-gray-200 text-black font-bold' : 'text-gray-400 hover:bg-[#333]'}`}
+                >
+                    {r}
+                </button>
+            ))}
         </div>
     );
+};
+
+const aspectRatioToPadding: Record<AspectRatio, string> = {
+    '1:1': '100%',
+    '16:9': '56.25%',
+    '9:16': '177.78%',
+    '4:3': '75%',
+    '3:4': '133.33%',
 };
 
 export const OutputNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectable }) => {
     const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatio>(data.aspectRatio || '1:1');
     
+    useEffect(() => {
+        if (data.aspectRatio) {
+            setSelectedAspectRatio(data.aspectRatio);
+        }
+    }, [data.aspectRatio]);
+
     const handleGenerateClick = () => {
         if (data.onGenerate) {
-            data.onGenerate(id, selectedAspectRatio);
+            // FIX: Argument of type '"output"' is not assignable to parameter of type 'GenerationRequestType'.
+            data.onGenerate(id, 'image-generate', { aspectRatio: selectedAspectRatio });
         }
     };
 
@@ -58,35 +70,50 @@ export const OutputNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnecta
             
             <div className="w-full h-full rounded-lg flex flex-col">
                 <div className="flex items-center text-gray-400 text-xs p-2 border-b border-[#3A3A3A] flex-shrink-0">
+                    {/* FIX: Property 'OUTPUT' does not exist on type 'typeof NodeType'. */}
                     <NodeIcon type={NodeType.OUTPUT} className="mr-2 text-gray-500" />
                     <span className="font-medium">{data.label}</span>
                 </div>
-                <div className="flex-grow min-h-0">
-                     <div className="bg-[#111111] flex flex-col">
+                <div className="flex-grow min-h-0 bg-[#111111]">
+                    {data.content ? (
+                        <div className="p-2">
+                            <div
+                                className="relative w-full bg-black rounded-md"
+                                style={{ paddingTop: aspectRatioToPadding[data.aspectRatio || '1:1'] }}
+                            >
+                                <img
+                                    src={data.content}
+                                    alt="Output"
+                                    className="absolute top-0 left-0 w-full h-full object-contain"
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="h-32 flex flex-col items-center justify-center text-center p-4">
+                             <span className="text-gray-500 text-xs">Connect input nodes, choose an aspect ratio, and click Generate.</span>
+                        </div>
+                    )}
+                </div>
+                <div className="flex flex-col items-center justify-end p-2 border-t border-[#3A3A3A] bg-[#1C1C1C]/50">
+                    <AspectRatioSelector selected={selectedAspectRatio} onSelect={setSelectedAspectRatio} />
+                    <div className="w-full pt-2">
                         {data.content ? (
-                            <>
-                                <div className="p-2">
-                                    <img src={data.content} alt="Output" className="w-full h-auto object-contain rounded-md" />
-                                </div>
-                                <div className="flex items-center justify-end space-x-2 p-2 border-t border-[#3A3A3A] bg-[#1C1C1C]/50">
-                                    <button onClick={handleGenerateClick} title="Regenerate" className="p-2 rounded-md text-gray-400 hover:bg-[#333] hover:text-white transition-colors">
-                                        <RegenerateIcon />
-                                    </button>
-                                     <button onClick={handleDownload} title="Download Image" className="p-2 rounded-md text-gray-400 hover:bg-[#333] hover:text-white transition-colors">
-                                        <DownloadIcon />
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center text-center p-2 space-y-2">
-                                <AspectRatioSelector selected={selectedAspectRatio} onSelect={setSelectedAspectRatio} />
-                                <button 
-                                    onClick={handleGenerateClick}
-                                    className="w-full bg-gray-200 hover:bg-white text-black text-sm font-bold py-2 px-4 rounded-md transition-colors"
-                                >
-                                    Generate
+                            <div className="flex w-full items-center justify-end space-x-2">
+                                <button onClick={handleGenerateClick} title="Regenerate" className="flex items-center justify-center flex-grow bg-gray-200 hover:bg-white text-black text-sm font-bold py-2 px-4 rounded-md transition-colors">
+                                    <RegenerateIcon />
+                                    <span className="ml-2">Regenerate</span>
+                                </button>
+                                <button onClick={handleDownload} title="Download Image" className="p-2 rounded-md text-gray-400 bg-gray-700 hover:bg-gray-600 hover:text-white transition-colors">
+                                    <DownloadIcon />
                                 </button>
                             </div>
+                        ) : (
+                            <button 
+                                onClick={handleGenerateClick}
+                                className="w-full bg-gray-200 hover:bg-white text-black text-sm font-bold py-2 px-4 rounded-md transition-colors"
+                            >
+                                Generate
+                            </button>
                         )}
                     </div>
                 </div>
