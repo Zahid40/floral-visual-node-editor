@@ -1,0 +1,5 @@
+{
+  "name": "Floral — Visual Node AI",
+  "description": "A node-based visual generation system powered by Gemini. Users can drag and connect nodes to merge multiple image references and text prompts to generate or edit new images with AI.",
+  "requestFramePermissions": []
+}

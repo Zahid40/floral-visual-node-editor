@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nano Bana — Visual Node AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://aistudiocdn.com/reactflow@^11.11.4/dist/style.css" />
+    <style>
+      body {
+        background-color: #0a0a0a;
+        overflow: hidden; /* Prevent scrolling of the whole page */
+      }
+      .react-flow__handle {
+        background: #f0f0f0 !important;
+        border: 2px solid #2d2d2d !important;
+        width: 14px !important;
+        height: 14px !important;
+      }
+      .react-flow__edge-path {
+        stroke: #f0f0f0 !important;
+        stroke-width: 1.5 !important;
+      }
+      .react-flow__edge.animated .react-flow__edge-path {
+          stroke-dasharray: 5, 5;
+          animation: dashdraw .5s linear infinite;
+      }
+      @keyframes dashdraw {
+          to {
+              stroke-dashoffset: -10;
+          }
+      }
+      .react-flow__attribution {
+        display: none !important; /* Hide React Flow attribution */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
+    "reactflow/": "https://aistudiocdn.com/reactflow@^11.11.4/",
+    "reactflow": "https://aistudiocdn.com/reactflow@^11.11.4"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
