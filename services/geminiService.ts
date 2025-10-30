@@ -21,55 +21,34 @@ const fileToBase64 = (file: File): Promise<{base64: string, dataUrl: string}> =>
     });
 };
 
-const generateImageWithImagen = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
-    try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/jpeg',
-                aspectRatio,
-            },
-        });
-
-        if (response.generatedImages && response.generatedImages.length > 0) {
-            return response.generatedImages[0].image.imageBytes;
-        } else {
-            throw new Error("Image generation failed, no images returned.");
-        }
-    } catch (error) {
-        console.error("Error generating image with Imagen:", error);
-        throw new Error("Failed to generate image with Gemini API.");
-    }
-};
-
 export const generateFromNodes = async (images: Node<NodeData>[], prompt: string, aspectRatio: AspectRatio): Promise<{ b64: string; mimeType: 'image/jpeg' | 'image/png' }> => {
     try {
+        const parts: ({ text: string } | { inlineData: { data: string; mimeType: string; } })[] = [];
+        let effectivePrompt = prompt;
+
         if (images.length === 0) {
             // Text-to-image generation
             if (!prompt) {
                 throw new Error("A text prompt is required for image generation.");
             }
-            const b64 = await generateImageWithImagen(prompt, aspectRatio);
-            return { b64, mimeType: 'image/jpeg' };
+            // Add aspect ratio to prompt for Nano Banana
+            effectivePrompt = `${prompt}, aspect ratio ${aspectRatio}`;
+            parts.push({ text: effectivePrompt });
+        } else {
+            // Multi-modal generation (image + text, or image + image)
+            if (images.length > 1 && !prompt) {
+                effectivePrompt = "Merge these images into a single, cohesive, professional-looking photograph. Blend the elements, styles, and subjects naturally.";
+            }
+            
+            const textPart = effectivePrompt ? [{ text: effectivePrompt }] : [];
+            const imageParts = images.map(n => ({
+                inlineData: {
+                    data: n.data.content as string,
+                    mimeType: n.data.mimeType as string,
+                },
+            }));
+            parts.push(...imageParts, ...textPart);
         }
-
-        // Multi-modal generation (image + text, or image + image)
-        let effectivePrompt = prompt;
-        if (images.length > 1 && !prompt) {
-            effectivePrompt = "Merge these images into a single, cohesive, professional-looking photograph. Blend the elements, styles, and subjects naturally.";
-        }
-        
-        const textParts = effectivePrompt ? [{ text: effectivePrompt }] : [];
-        const imageParts = images.map(n => ({
-            inlineData: {
-                data: n.data.content as string,
-                mimeType: n.data.mimeType as string,
-            },
-        }));
-
-        const parts = [...imageParts, ...textParts];
         
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
@@ -113,6 +92,7 @@ export const generatePromptFromImage = async (image: Node<NodeData>): Promise<st
 
     } catch (error) {
         console.error("Error generating prompt from image:", error);
+        if (error instanceof Error) throw error;
         throw new Error("Failed to generate prompt from image with Gemini API.");
     }
 };
@@ -129,6 +109,7 @@ export const enhancePrompt = async (prompt: string): Promise<string> => {
         return response.text.trim();
     } catch (error) {
         console.error("Error enhancing prompt:", error);
+        if (error instanceof Error) throw error;
         throw new Error("Failed to enhance prompt with Gemini API.");
     }
 };

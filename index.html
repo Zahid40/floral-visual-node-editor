@@ -7,25 +7,46 @@
     <title>Nano Bana — Visual Node AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://aistudiocdn.com/reactflow@^11.11.4/dist/style.css" />
+    <link rel="stylesheet" href="https://unpkg.com/react-image-crop/dist/ReactCrop.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
       body {
         background-color: #0a0a0a;
         overflow: hidden; /* Prevent scrolling of the whole page */
+        font-family: 'Geist', sans-serif;
       }
       .react-flow__handle {
-        background: #f0f0f0 !important;
-        border: 2px solid #2d2d2d !important;
-        width: 14px !important;
-        height: 14px !important;
+        width: 8px !important;
+        height: 8px !important;
+        background: #1A1A1A !important;
+        border: 2px solid #999 !important;
+      }
+      .react-flow__handle:hover {
+        border-color: #fff !important;
+      }
+      .react-flow__handle-connecting {
+        border-color: #E54836 !important;
+        background: #E54836 !important;
       }
       .react-flow__edge-path {
-        stroke: #f0f0f0 !important;
-        stroke-width: 1.5 !important;
+        stroke: #999 !important;
+        stroke-width: 1.5px !important;
       }
-      .react-flow__edge.animated .react-flow__edge-path {
-          stroke: url(#animated-gradient) !important;
-          stroke-width: 2.5px !important;
+       .react-flow__edge.animated .react-flow__edge-path {
+          stroke: #E54836 !important;
+          stroke-width: 2px !important;
+          stroke-dasharray: 5;
+          animation: dashdraw 0.5s linear infinite;
       }
+
+      @keyframes dashdraw {
+          to {
+              stroke-dashoffset: -10;
+          }
+      }
+
       .react-flow__attribution {
         display: none !important; /* Hide React Flow attribution */
       }
@@ -38,7 +59,8 @@
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
     "reactflow/": "https://aistudiocdn.com/reactflow@^11.11.4/",
-    "reactflow": "https://aistudiocdn.com/reactflow@^11.11.4"
+    "reactflow": "https://aistudiocdn.com/reactflow@^11.11.4",
+    "react-image-crop": "https://aistudiocdn.com/react-image-crop@^11.0.5"
   }
 }
 </script>

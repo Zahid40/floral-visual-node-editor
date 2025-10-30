@@ -1,27 +1,27 @@
+
 import React, { useCallback, useState, useMemo } from 'react';
 import { NodeProps, Handle, Position, useNodes, useEdges } from 'reactflow';
 import { NodeData, NodeType } from '../../types';
 import { enhancePrompt } from '../../services/geminiService';
-import { NodeIcon } from './NodeIcon';
 
 const EnhanceIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.75L15.3536 6.10355L21.25 4.75L19.8964 10.6464L23.25 14L18.8964 15.3536L19.25 21.25L13.3536 19.8964L10 23.25L8.64645 17.3536L2.75 19.25L4.10355 13.3536L0.75 10L6.10355 8.64645L4.75 2.75L10.6464 4.10355L12 2.75Z" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
 );
 
 const GeneratePromptIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline><path d="M12 5v14M19 12l-7 7-7-7" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
 );
 
 const CopyIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
 );
 
 const CheckIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-400"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-400"><path d="M20 6L9 17l-5-5"/></svg>
 );
 
 
-export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectable }) => {
+export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectable, selected }) => {
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     const nodes = useNodes<NodeData>();
@@ -31,7 +31,7 @@ export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectabl
         return edges.some(edge => {
             if (edge.target !== id) return false;
             const sourceNode = nodes.find(n => n.id === edge.source);
-            return sourceNode?.type === NodeType.IMAGE;
+            return sourceNode?.type === NodeType.IMAGE || sourceNode?.type === NodeType.OUTPUT;
         });
     }, [id, edges, nodes]);
 
@@ -82,25 +82,32 @@ export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectabl
     }, [data.content]);
 
     return (
-        <div className="w-64 md:w-72 bg-[#1C1C1C] border border-[#3A3A3A] rounded-lg shadow-2xl shadow-black/30">
+        <div className={`w-72 bg-neutral-900/80 backdrop-blur-md rounded-xl shadow-2xl shadow-black/40 border transition-all duration-300 relative ${selected ? 'border-vermilion-500/80 shadow-[0_0_20px_rgba(229,72,54,0.3)]' : 'border-neutral-700/50'}`}>
+            <button
+                onClick={() => data.onDelete && data.onDelete(id)}
+                className="absolute -top-2 -right-2 w-5 h-5 bg-neutral-700 hover:bg-red-600 rounded-full text-white text-xs flex items-center justify-center cursor-pointer transition-all duration-200 leading-none opacity-50 hover:opacity-100 z-10"
+                title="Delete Node"
+            >
+              &times;
+            </button>
             <Handle type="target" position={Position.Left} isConnectable={isConnectable} />
-            <div className="w-full h-full rounded-lg flex flex-col">
-                <div className="flex items-center text-gray-400 text-xs p-2 border-b border-[#3A3A3A] flex-shrink-0">
-                    <NodeIcon type={NodeType.TEXT} className="mr-2 text-gray-500" />
-                    <span className="font-medium">{data.label}</span>
+            <div className="w-full h-full rounded-xl flex flex-col">
+                <div className="flex items-center text-gray-400 text-xs p-2.5">
+                    <div className={`w-2 h-2 rounded-full mr-2 ${data.label.toLowerCase().includes('negative') ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                    <span className="font-medium text-sm text-neutral-300">{data.label}</span>
                 </div>
-                <div className="w-full h-40 bg-[#111111] flex flex-col">
+                <div className="w-full h-40 bg-neutral-950/50 flex flex-col">
                     <textarea
                         value={data.content || ''}
                         onChange={onChange}
-                        placeholder="Describe your vision..."
-                        className="w-full flex-grow bg-transparent text-gray-300 text-sm p-2 resize-none focus:outline-none placeholder-gray-600"
+                        placeholder="Type what you want to get..."
+                        className="w-full flex-grow bg-transparent text-neutral-300 text-sm p-3 resize-none focus:outline-none placeholder-neutral-600"
                     />
-                    <div className="flex justify-between items-center p-2 border-t border-[#3A3A3A] bg-[#1C1C1C]/50">
+                    <div className="flex justify-between items-center p-2 border-t border-neutral-800/80 bg-neutral-900/50 rounded-b-xl">
                         <button
                             onClick={handleCopyText}
                             disabled={!data.content}
-                            className="p-1.5 rounded-md text-gray-400 hover:bg-[#333] hover:text-white disabled:text-gray-700 disabled:cursor-not-allowed transition-colors"
+                            className="p-1.5 rounded-md text-neutral-400 hover:bg-neutral-700 hover:text-white disabled:text-neutral-700 disabled:cursor-not-allowed transition-colors"
                             title="Copy Prompt"
                         >
                            {isCopied ? <CheckIcon /> : <CopyIcon />}
@@ -109,7 +116,7 @@ export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectabl
                             {hasImageInput && (
                                 <button
                                     onClick={handleGeneratePrompt}
-                                    className="flex items-center text-xs font-semibold text-gray-300 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
+                                    className="flex items-center text-xs font-semibold text-neutral-300 hover:text-white disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors"
                                     title="Generate prompt from connected image"
                                 >
                                     <GeneratePromptIcon />
@@ -119,12 +126,12 @@ export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectabl
                             <button
                                 onClick={handleEnhance}
                                 disabled={isEnhancing || !data.content}
-                                className="flex items-center text-xs font-semibold text-gray-300 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
+                                className="flex items-center text-xs font-semibold text-neutral-300 hover:text-white disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors"
                                 title="Enhance prompt with AI"
                             >
                                 {isEnhancing ? (
                                     <>
-                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
