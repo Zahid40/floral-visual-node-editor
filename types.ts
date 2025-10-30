@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Node } from "reactflow";
 
@@ -9,7 +10,7 @@ export enum NodeType {
     OUTPUT = 'outputNode',
 }
 
-export type GenerationRequestType = 'image-generate' | 'prompt-from-image' | 'output';
+export type GenerationRequestType = 'image-generate' | 'prompt-from-image' | 'output' | 'enhance-prompt';
 
 export interface GenerationRequest {
     nodeId: string;

@@ -9,12 +9,12 @@ import ReactFlow, {
   Edge,
   Node,
   Background,
-  Controls as ReactFlowControls,
   NodeChange,
   EdgeChange,
   applyNodeChanges,
   applyEdgeChanges,
   BackgroundVariant,
+  MiniMap,
 } from 'reactflow';
 
 import { Header } from './components/Header';
@@ -22,7 +22,7 @@ import { Sidebar } from './components/Sidebar';
 import { ShareModal } from './components/ShareModal';
 import { GallerySheet } from './components/GallerySheet';
 import { Controls } from './components/Controls';
-import { generateFromNodes, generatePromptFromImage, fileToBase64 } from './services/geminiService';
+import { generateFromNodes, generatePromptFromImage, fileToBase64, enhancePrompt } from './services/geminiService';
 import { NodeData, NodeType, GenerationRequest, GenerationRequestType, AspectRatio } from './types';
 import { ImageNode } from './components/nodes/ImageNode';
 import { TextNode } from './components/nodes/TextNode';
@@ -130,6 +130,7 @@ const App: React.FC = () => {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const copyingNodeRef = useRef<Node<NodeData> | null>(null);
+  const [tokenUsage, setTokenUsage] = useState({ last: 0, sessionTotal: 0 });
 
   // Undo/Redo state
   const [history, setHistory] = useState<FlowState[]>([{ nodes: [], edges: [] }]);
@@ -428,11 +429,11 @@ const App: React.FC = () => {
       try {
         const currentNodes = reactFlowInstance.getNodes();
         const currentEdges = reactFlowInstance.getEdges();
-        const targetNode = currentNodes.find(n => n.id === nodeId);
-        if (!targetNode) throw new Error("Target node not found.");
 
         switch(type) {
             case 'image-generate': {
+                const targetNode = currentNodes.find(n => n.id === nodeId);
+                if (!targetNode) throw new Error("Target node not found.");
                 const includeSelf = !!targetNode.data.content && (targetNode.type === NodeType.IMAGE || targetNode.type === NodeType.OUTPUT);
                 const { images, texts } = findUpstreamNodes(nodeId, currentNodes, currentEdges, includeSelf);
 
@@ -443,8 +444,11 @@ const App: React.FC = () => {
                     throw new Error('Please connect at least one Image or Text node to generate an image.');
                 }
                 const aspectRatio = options.aspectRatio || '1:1';
-                const { b64, mimeType } = await generateFromNodes(images, prompt, aspectRatio);
+                const { b64, mimeType, usageMetadata } = await generateFromNodes(images, prompt, aspectRatio);
                 setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, content: `data:${mimeType};base64,${b64}`, mimeType, aspectRatio } } : node));
+                if (usageMetadata?.totalTokenCount) {
+                  setTokenUsage(prev => ({ last: usageMetadata.totalTokenCount, sessionTotal: prev.sessionTotal + usageMetadata.totalTokenCount }));
+                }
                 break;
             }
             case 'prompt-from-image': {
@@ -452,8 +456,23 @@ const App: React.FC = () => {
                 if (images.length === 0) {
                     throw new Error('Please connect an image node to generate a prompt.');
                 }
-                const prompt = await generatePromptFromImage(images[0]);
+                const { prompt, usageMetadata } = await generatePromptFromImage(images[0]);
                 setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, content: prompt } } : node));
+                if (usageMetadata?.totalTokenCount) {
+                  setTokenUsage(prev => ({ last: usageMetadata.totalTokenCount, sessionTotal: prev.sessionTotal + usageMetadata.totalTokenCount }));
+                }
+                break;
+            }
+            case 'enhance-prompt': {
+                const targetNode = currentNodes.find((n: Node<NodeData>) => n.id === nodeId);
+                if (!targetNode || !targetNode.data.content) throw new Error("Target node or its content not found for enhancing.");
+                
+                const { enhanced, usageMetadata } = await enhancePrompt(targetNode.data.content);
+                setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, content: enhanced } } : node));
+                
+                if (usageMetadata?.totalTokenCount) {
+                  setTokenUsage(prev => ({ last: usageMetadata.totalTokenCount, sessionTotal: prev.sessionTotal + usageMetadata.totalTokenCount }));
+                }
                 break;
             }
         }
@@ -591,6 +610,7 @@ const App: React.FC = () => {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        tokenUsage={tokenUsage}
       />
       <main className="flex-grow flex">
         <ReactFlowProvider>
@@ -621,6 +641,22 @@ const App: React.FC = () => {
               className="bg-transparent"
             >
               <Background variant={BackgroundVariant.Dots} gap={24} size={1} className="!bg-neutral-950" />
+              <MiniMap
+                  nodeColor={(n) => {
+                      switch (n.type) {
+                          case NodeType.IMAGE: return '#ca8a04';
+                          case NodeType.TEXT: return '#10b981';
+                          case NodeType.OUTPUT: return '#3b82f6';
+                          default: return '#e5e5e5';
+                      }
+                  }}
+                  nodeStrokeWidth={3}
+                  maskColor="#1C1C1C"
+                  maskStrokeColor="#555"
+                  className="!bg-[#1C1C1C] !border !border-neutral-700/50"
+                  pannable
+                  zoomable
+              />
               <Controls isLocked={isLocked} onLockToggle={() => setIsLocked(l => !l)} />
             </ReactFlow>
           </div>

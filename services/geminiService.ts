@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality } from "@google/genai";
 import { AspectRatio, NodeData } from '../types';
 import { Node } from 'reactflow';
@@ -21,7 +22,7 @@ const fileToBase64 = (file: File): Promise<{base64: string, dataUrl: string}> =>
     });
 };
 
-export const generateFromNodes = async (images: Node<NodeData>[], prompt: string, aspectRatio: AspectRatio): Promise<{ b64: string; mimeType: 'image/jpeg' | 'image/png' }> => {
+export const generateFromNodes = async (images: Node<NodeData>[], prompt: string, aspectRatio: AspectRatio) => {
     try {
         const parts: ({ text: string } | { inlineData: { data: string; mimeType: string; } })[] = [];
         let effectivePrompt = prompt;
@@ -60,7 +61,7 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
         
         for (const part of response.candidates[0].content.parts) {
             if (part.inlineData) {
-                return { b64: part.inlineData.data, mimeType: 'image/png' };
+                return { b64: part.inlineData.data, mimeType: 'image/png' as const, usageMetadata: response.usageMetadata };
             }
         }
 
@@ -75,7 +76,7 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
 };
 
 
-export const generatePromptFromImage = async (image: Node<NodeData>): Promise<string> => {
+export const generatePromptFromImage = async (image: Node<NodeData>) => {
     if (!image.data.content || !image.data.mimeType) {
         throw new Error("Image data is missing for prompt generation.");
     }
@@ -88,7 +89,7 @@ export const generatePromptFromImage = async (image: Node<NodeData>): Promise<st
             contents: { parts: [imagePart, textPart] },
         });
 
-        return response.text.trim();
+        return { prompt: response.text.trim(), usageMetadata: response.usageMetadata };
 
     } catch (error) {
         console.error("Error generating prompt from image:", error);
@@ -97,16 +98,16 @@ export const generatePromptFromImage = async (image: Node<NodeData>): Promise<st
     }
 };
 
-export const enhancePrompt = async (prompt: string): Promise<string> => {
+export const enhancePrompt = async (prompt: string) => {
     if (!prompt.trim()) {
-        return "";
+        return { enhanced: "", usageMetadata: { totalTokenCount: 0 }};
     }
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: `As an expert prompt engineer for AI image generation, rewrite the following user prompt to be more vivid, descriptive, and detailed. Your goal is to maximize the creative potential of the AI. Return ONLY the rewritten prompt, without any introduction, preamble, or explanation.\n\nOriginal prompt: "${prompt}"`,
         });
-        return response.text.trim();
+        return { enhanced: response.text.trim(), usageMetadata: response.usageMetadata };
     } catch (error) {
         console.error("Error enhancing prompt:", error);
         if (error instanceof Error) throw error;

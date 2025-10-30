@@ -2,7 +2,6 @@
 import React, { useCallback, useState, useMemo } from 'react';
 import { NodeProps, Handle, Position, useNodes, useEdges } from 'reactflow';
 import { NodeData, NodeType } from '../../types';
-import { enhancePrompt } from '../../services/geminiService';
 
 const EnhanceIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
@@ -22,7 +21,6 @@ const CheckIcon = () => (
 
 
 export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectable, selected }) => {
-    const [isEnhancing, setIsEnhancing] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     const nodes = useNodes<NodeData>();
     const edges = useEdges();
@@ -46,22 +44,8 @@ export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectabl
     }, [id, data]);
 
     const handleEnhance = useCallback(async () => {
-        if (!data.content || !data.onUpdate) return;
-        setIsEnhancing(true);
-        try {
-            const enhanced = await enhancePrompt(data.content);
-            if (enhanced) {
-                data.onUpdate((nds) =>
-                    nds.map((node) =>
-                        node.id === id ? { ...node, data: { ...node.data, content: enhanced } } : node
-                    )
-                );
-            }
-        } catch (error) {
-            console.error("Failed to enhance prompt:", error);
-        } finally {
-            setIsEnhancing(false);
-        }
+        if (!data.content || !data.onGenerate) return;
+        data.onGenerate(id, 'enhance-prompt');
     }, [id, data]);
 
      const handleGeneratePrompt = useCallback(() => {
@@ -125,11 +109,11 @@ export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectabl
                             )}
                             <button
                                 onClick={handleEnhance}
-                                disabled={isEnhancing || !data.content}
+                                disabled={data.loading || !data.content}
                                 className="flex items-center text-xs font-semibold text-neutral-300 hover:text-white disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors"
                                 title="Enhance prompt with AI"
                             >
-                                {isEnhancing ? (
+                                {data.loading ? (
                                     <>
                                         <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
