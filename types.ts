@@ -7,7 +7,6 @@ export type AspectRatio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
 export enum NodeType {
     IMAGE = 'imageNode',
     TEXT = 'textNode',
-    OUTPUT = 'outputNode',
 }
 
 export type GenerationRequestType = 'image-generate' | 'prompt-from-image' | 'output' | 'enhance-prompt';

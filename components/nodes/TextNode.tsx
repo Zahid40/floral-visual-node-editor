@@ -29,7 +29,7 @@ export const TextNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectabl
         return edges.some(edge => {
             if (edge.target !== id) return false;
             const sourceNode = nodes.find(n => n.id === edge.source);
-            return sourceNode?.type === NodeType.IMAGE || sourceNode?.type === NodeType.OUTPUT;
+            return sourceNode?.type === NodeType.IMAGE;
         });
     }, [id, edges, nodes]);
 

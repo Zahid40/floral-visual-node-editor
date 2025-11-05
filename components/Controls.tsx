@@ -31,7 +31,7 @@ export const Controls: React.FC<ControlsProps> = ({ isLocked, onLockToggle }) =>
     const controlButtonClass = "p-3 text-neutral-400 hover:text-white transition-colors w-full";
 
     return (
-        <div className="absolute bottom-5 right-5 z-10 bg-[#1C1C1C]/80 backdrop-blur-md border border-neutral-700/50 rounded-lg flex flex-col items-center shadow-lg">
+        <div className="absolute top-1/2 -translate-y-1/2 right-5 z-10 bg-[#1C1C1C]/80 backdrop-blur-md border border-neutral-700/50 rounded-lg flex flex-col items-center shadow-lg">
             <button onClick={() => zoomIn({ duration: 300 })} className={`${controlButtonClass} border-b border-neutral-700/50`} title="Zoom In"><ZoomInIcon /></button>
             <button onClick={() => zoomOut({ duration: 300 })} className={`${controlButtonClass} border-b border-neutral-700/50`} title="Zoom Out"><ZoomOutIcon /></button>
             <button onClick={() => fitView({ duration: 300 })} className={`${controlButtonClass} border-b border-neutral-700/50`} title="Fit View"><FitViewIcon /></button>

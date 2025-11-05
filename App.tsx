@@ -26,7 +26,6 @@ import { generateFromNodes, generatePromptFromImage, fileToBase64, enhancePrompt
 import { NodeData, NodeType, GenerationRequest, GenerationRequestType, AspectRatio } from './types';
 import { ImageNode } from './components/nodes/ImageNode';
 import { TextNode } from './components/nodes/TextNode';
-import { OutputNode } from './components/nodes/OutputNode';
 import { CustomEdge } from './components/edges/CustomEdge';
 
 let id = 0;
@@ -54,7 +53,7 @@ const findUpstreamNodes = (startNodeId: string, allNodes: Node<NodeData>[], allE
 
   if (includeSelf) {
     const startNode = nodesMap[startNodeId];
-    if (startNode && (startNode.type === NodeType.IMAGE || startNode.type === NodeType.OUTPUT) && startNode.data.content) {
+    if (startNode && startNode.type === NodeType.IMAGE && startNode.data.content) {
       const base64Content = startNode.data.content.split(',')[1] || startNode.data.content;
       collectedImageNodes.push({ ...startNode, data: { ...startNode.data, content: base64Content }});
       collectedIds.add(startNode.id);
@@ -74,7 +73,7 @@ const findUpstreamNodes = (startNodeId: string, allNodes: Node<NodeData>[], allE
       const sourceNode = nodesMap[edge.source];
       if (sourceNode) {
         if (!collectedIds.has(sourceNode.id)) {
-           if ((sourceNode.type === NodeType.IMAGE || sourceNode.type === NodeType.OUTPUT) && sourceNode.data.content) {
+           if (sourceNode.type === NodeType.IMAGE && sourceNode.data.content) {
               const base64Content = sourceNode.data.content.split(',')[1] || sourceNode.data.content;
               collectedImageNodes.push({ ...sourceNode, data: { ...sourceNode.data, content: base64Content }});
               collectedIds.add(sourceNode.id);
@@ -222,7 +221,6 @@ const App: React.FC = () => {
   const nodeTypes = useMemo(() => ({
     [NodeType.IMAGE]: ImageNode,
     [NodeType.TEXT]: TextNode,
-    [NodeType.OUTPUT]: OutputNode,
   }), []);
 
   const edgeTypes = useMemo(() => ({
@@ -324,9 +322,6 @@ const App: React.FC = () => {
           case NodeType.TEXT:
             newNode = { id: getId(), type, position, data: { onUpdate: setNodes, onGenerate: requestGenerate, onDelete: deleteNode, label: 'Text Prompt', content: '', loading: false } };
             break;
-          case NodeType.OUTPUT:
-             newNode = { id: getId(), type, position, data: { onUpdate: setNodes, onGenerate: requestGenerate, onPreview: handlePreviewImage, onDelete: deleteNode, label: 'Output', content: null, aspectRatio: '1:1', loading: false } };
-             break;
           default:
             return;
         }
@@ -434,7 +429,7 @@ const App: React.FC = () => {
             case 'image-generate': {
                 const targetNode = currentNodes.find(n => n.id === nodeId);
                 if (!targetNode) throw new Error("Target node not found.");
-                const includeSelf = !!targetNode.data.content && (targetNode.type === NodeType.IMAGE || targetNode.type === NodeType.OUTPUT);
+                const includeSelf = !!targetNode.data.content && targetNode.type === NodeType.IMAGE;
                 const { images, texts } = findUpstreamNodes(nodeId, currentNodes, currentEdges, includeSelf);
 
                 const validTexts = texts.filter(n => n.data.content?.trim());
@@ -547,6 +542,18 @@ const App: React.FC = () => {
             if (!isNaN(nodeIdNum) && nodeIdNum > maxId) {
                 maxId = nodeIdNum;
             }
+             // Backwards compatibility: convert old output nodes to image nodes
+            if (node.type === 'outputNode') {
+                node.type = NodeType.IMAGE;
+                node.data.label = 'Output';
+            }
+
+            // Skip unknown node types
+            if (!Object.values(NodeType).includes(node.type as NodeType)) {
+                console.warn(`Unsupported node type during import: ${node.type}. Skipping.`);
+                return null;
+            }
+
             return {
                 ...node,
                 data: {
@@ -558,7 +565,7 @@ const App: React.FC = () => {
                     loading: false,
                 },
             };
-        });
+        }).filter((n: Node<NodeData> | null): n is Node<NodeData> => n !== null);
 
         const newEdges: Edge[] = workflow.edges.map((edge: any) => ({
             ...edge,
@@ -584,7 +591,7 @@ const App: React.FC = () => {
 
   const imageNodes = useMemo(() => {
     return nodes.filter(node => 
-        (node.type === NodeType.IMAGE || node.type === NodeType.OUTPUT) && node.data.content
+        node.type === NodeType.IMAGE && node.data.content
     );
   }, [nodes]);
 
@@ -642,11 +649,11 @@ const App: React.FC = () => {
             >
               <Background variant={BackgroundVariant.Dots} gap={24} size={1} className="!bg-neutral-950" />
               <MiniMap
+                  position="bottom-right"
                   nodeColor={(n) => {
                       switch (n.type) {
                           case NodeType.IMAGE: return '#ca8a04';
                           case NodeType.TEXT: return '#10b981';
-                          case NodeType.OUTPUT: return '#3b82f6';
                           default: return '#e5e5e5';
                       }
                   }}
