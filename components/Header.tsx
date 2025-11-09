@@ -39,8 +39,7 @@ export const Header: React.FC<HeaderProps> = ({ onShareClick, onGalleryClick, on
         <header className="py-4 px-6 md:px-8 border-b border-neutral-800 bg-neutral-950/50 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <img src="/logo.svg" alt="Floral Logo" className="h-6" />
-                    <span className="hidden sm:inline-block text-sm text-gray-500 font-mono">— Visual Node AI</span>
+                    <img src="../logo.svg" alt="Floral Logo" className="h-6" />
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-4">
                      <div className="hidden md:flex items-center space-x-2 p-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm">

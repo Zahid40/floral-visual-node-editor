@@ -26,6 +26,7 @@ import { generateFromNodes, generatePromptFromImage, fileToBase64, enhancePrompt
 import { NodeData, NodeType, GenerationRequest, GenerationRequestType, AspectRatio } from './types';
 import { ImageNode } from './components/nodes/ImageNode';
 import { TextNode } from './components/nodes/TextNode';
+import { GroupNode } from './components/nodes/GroupNode';
 import { CustomEdge } from './components/edges/CustomEdge';
 
 let id = 0;
@@ -138,11 +139,54 @@ const App: React.FC = () => {
 
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+  const selectedNodesCount = useMemo(() => nodes.filter(node => node.selected).length, [nodes]);
 
-  const deleteNode = useCallback((idToDelete: string) => {
-    setNodes((nds) => nds.filter((node) => node.id !== idToDelete));
-    setEdges((eds) => eds.filter((edge) => edge.source !== idToDelete && edge.target !== idToDelete));
+
+ const deleteNode = useCallback((idToDelete: string) => {
+    setNodes((currentNodes) => {
+      const nodeToDelete = currentNodes.find((n) => n.id === idToDelete);
+      let idsToDelete = new Set([idToDelete]);
+
+      // If it's a group, also mark its children for deletion
+      if (nodeToDelete && nodeToDelete.type === NodeType.GROUP) {
+        currentNodes.forEach((n) => {
+          if (n.parentNode === idToDelete) {
+            idsToDelete.add(n.id);
+          }
+        });
+      }
+
+      const remainingNodes = currentNodes.filter((node) => !idsToDelete.has(node.id));
+
+      setEdges((eds) =>
+        eds.filter((edge) => !idsToDelete.has(edge.source) && !idsToDelete.has(edge.target))
+      );
+
+      return remainingNodes;
+    });
   }, [setNodes, setEdges]);
+
+
+  const handleUngroup = useCallback((nodeId: string) => {
+    const groupNode = nodes.find(n => n.id === nodeId);
+    if (!groupNode) return;
+
+    const childNodes = nodes.filter(n => n.parentNode === nodeId);
+    const otherNodes = nodes.filter(n => n.parentNode !== nodeId && n.id !== nodeId);
+
+    const updatedChildNodes = childNodes.map(child => ({
+        ...child,
+        parentNode: undefined,
+        extent: undefined,
+        position: {
+            x: child.position.x + groupNode.position.x,
+            y: child.position.y + groupNode.position.y,
+        }
+    }));
+    
+    setNodes([...otherNodes, ...updatedChildNodes]);
+  }, [nodes, setNodes]);
+
 
   // Save current flow state to history
   useEffect(() => {
@@ -221,6 +265,7 @@ const App: React.FC = () => {
   const nodeTypes = useMemo(() => ({
     [NodeType.IMAGE]: ImageNode,
     [NodeType.TEXT]: TextNode,
+    [NodeType.GROUP]: GroupNode,
   }), []);
 
   const edgeTypes = useMemo(() => ({
@@ -491,39 +536,30 @@ const App: React.FC = () => {
   }, [generationTrigger, reactFlowInstance, setNodes]);
 
   const exportWorkflow = useCallback((): string => {
-    const serializableNodes = nodes.map(({ id, type, position, data }) => {
+    const serializableNodes = nodes.map(({ id, type, position, data, width, height, parentNode, style }) => {
         const serializableData: any = {
             label: data.label,
-            // content: data.content, // Omit large image data
-            // mimeType: data.mimeType,
             aspectRatio: data.aspectRatio,
         };
         
-        // Only include content for text nodes
         if (type === NodeType.TEXT) {
             serializableData.content = data.content;
         }
 
         return {
-            id,
-            type,
-            position,
-            data: serializableData,
+            id, type, position, data: serializableData,
+            ...(width && { width }),
+            ...(height && { height }),
+            ...(parentNode && { parentNode }),
+            ...(style && { style }),
         };
     });
 
     const serializableEdges = edges.map(({ id, source, target, type, animated }) => ({
-        id,
-        source,
-        target,
-        type,
-        animated,
+        id, source, target, type, animated,
     }));
 
-    const workflow = {
-        nodes: serializableNodes,
-        edges: serializableEdges,
-    };
+    const workflow = { nodes: serializableNodes, edges: serializableEdges };
 
     return JSON.stringify(workflow, null, 2);
   }, [nodes, edges]);
@@ -542,26 +578,27 @@ const App: React.FC = () => {
             if (!isNaN(nodeIdNum) && nodeIdNum > maxId) {
                 maxId = nodeIdNum;
             }
-             // Backwards compatibility: convert old output nodes to image nodes
-            if (node.type === 'outputNode') {
+             if (node.type === 'outputNode') {
                 node.type = NodeType.IMAGE;
                 node.data.label = 'Output';
             }
 
-            // Skip unknown node types
             if (!Object.values(NodeType).includes(node.type as NodeType)) {
                 console.warn(`Unsupported node type during import: ${node.type}. Skipping.`);
                 return null;
             }
+
+            const isGroup = node.type === NodeType.GROUP;
 
             return {
                 ...node,
                 data: {
                     ...node.data,
                     onUpdate: setNodes,
-                    onGenerate: requestGenerate,
-                    onPreview: handlePreviewImage,
+                    onGenerate: isGroup ? undefined : requestGenerate,
+                    onPreview: isGroup ? undefined : handlePreviewImage,
                     onDelete: deleteNode,
+                    onUngroup: isGroup ? handleUngroup : undefined,
                     loading: false,
                 },
             };
@@ -585,9 +622,65 @@ const App: React.FC = () => {
 
     } catch (e) {
         console.error("Failed to import workflow:", e);
-        // The modal will show a generic error.
     }
-  }, [reactFlowInstance, requestGenerate, setNodes, setEdges, handlePreviewImage, deleteNode]);
+  }, [reactFlowInstance, requestGenerate, setNodes, setEdges, handlePreviewImage, deleteNode, handleUngroup]);
+
+
+  const handleGroup = useCallback(() => {
+    if (!reactFlowInstance) return;
+
+    const allCurrentNodes = reactFlowInstance.getNodes();
+    const selectedNodes = allCurrentNodes.filter((n: Node) => n.selected && !n.parentNode && n.type !== NodeType.GROUP);
+    if (selectedNodes.length < 2) return;
+
+    const PADDING = 40;
+    
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    selectedNodes.forEach((node: Node) => {
+        minX = Math.min(minX, node.position.x);
+        minY = Math.min(minY, node.position.y);
+        maxX = Math.max(maxX, node.position.x + (node.width || 0));
+        maxY = Math.max(maxY, node.position.y + (node.height || 0));
+    });
+
+    const groupWidth = maxX - minX + PADDING * 2;
+    const groupHeight = maxY - minY + PADDING * 2;
+    const groupPosition = { x: minX - PADDING, y: minY - PADDING };
+    const groupId = getId();
+
+    const newGroupNode: Node<NodeData> = {
+        id: groupId,
+        type: NodeType.GROUP,
+        position: groupPosition,
+        data: { 
+            label: 'New Group',
+            onUpdate: setNodes,
+            onDelete: deleteNode,
+            onUngroup: handleUngroup,
+        },
+        style: { width: groupWidth, height: groupHeight, zIndex: -1 },
+    };
+    
+    const updatedNodes = nodes.map(node => {
+        if (selectedNodes.find(sn => sn.id === node.id)) {
+            return {
+                ...node,
+                parentNode: groupId,
+                extent: 'parent',
+                position: {
+                    x: node.position.x - groupPosition.x,
+                    y: node.position.y - groupPosition.y,
+                },
+                selected: false
+            };
+        }
+        return node;
+    });
+
+    setNodes([...updatedNodes, newGroupNode]);
+  }, [reactFlowInstance, nodes, setNodes, deleteNode, handleUngroup]);
+
 
   const imageNodes = useMemo(() => {
     return nodes.filter(node => 
@@ -652,6 +745,7 @@ const App: React.FC = () => {
                   position="bottom-right"
                   nodeColor={(n) => {
                       switch (n.type) {
+                          case NodeType.GROUP: return '#52525b';
                           case NodeType.IMAGE: return '#ca8a04';
                           case NodeType.TEXT: return '#10b981';
                           default: return '#e5e5e5';
@@ -664,7 +758,7 @@ const App: React.FC = () => {
                   pannable
                   zoomable
               />
-              <Controls isLocked={isLocked} onLockToggle={() => setIsLocked(l => !l)} />
+              <Controls isLocked={isLocked} onLockToggle={() => setIsLocked(l => !l)} onGroup={handleGroup} selectedNodesCount={selectedNodesCount} />
             </ReactFlow>
           </div>
         </ReactFlowProvider>

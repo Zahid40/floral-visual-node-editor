@@ -7,6 +7,7 @@ export type AspectRatio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
 export enum NodeType {
     IMAGE = 'imageNode',
     TEXT = 'textNode',
+    GROUP = 'groupNode',
 }
 
 export type GenerationRequestType = 'image-generate' | 'prompt-from-image' | 'output' | 'enhance-prompt';
@@ -27,4 +28,5 @@ export interface NodeData {
     onGenerate?: (nodeId: string, type: GenerationRequestType, options?: any) => void;
     onPreview?: (src: string) => void;
     onDelete?: (nodeId: string) => void;
+    onUngroup?: (nodeId: string) => void;
 }
