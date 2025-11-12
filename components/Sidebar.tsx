@@ -13,6 +13,7 @@ const DraggableNode: React.FC<{ type: NodeType, label: string, icon: React.React
             onDragStart={(event) => onDragStart(event, type)}
             draggable
             className="flex items-center p-3 bg-neutral-900 rounded-lg border border-neutral-700/80 cursor-grab hover:bg-neutral-800 hover:border-neutral-700 transition-all duration-200"
+            title={`Drag to add a ${label} node to the canvas`}
         >
             <div className="text-gray-300">{icon}</div>
             <span className="ml-3 font-medium text-sm text-gray-300">{label}</span>

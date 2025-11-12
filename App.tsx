@@ -16,6 +16,8 @@ import ReactFlow, {
   BackgroundVariant,
   MiniMap,
 } from 'reactflow';
+import JSZip from 'jszip';
+import saveAs from 'file-saver';
 
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -464,6 +466,7 @@ const App: React.FC = () => {
       setError(null);
       const { nodeId, type, options } = generationTrigger;
       
+      // Fix: Correctly spread `n.data` to update the loading state.
       setNodes((nds) => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, loading: true } } : n));
 
       try {
@@ -700,6 +703,50 @@ const App: React.FC = () => {
     setIsGalleryOpen(false);
   }, [reactFlowInstance]);
 
+  const handleDownloadAll = useCallback(async () => {
+    if (imageNodes.length === 0) return;
+
+    const zip = new JSZip();
+    const imageFolder = zip.folder("floral-ai-images");
+
+    if (!imageFolder) {
+        setError("Failed to create zip folder.");
+        return;
+    }
+
+    for (const node of imageNodes) {
+        if (!node.data.content || !node.data.mimeType) continue;
+
+        try {
+            const base64Data = node.data.content.split(';base64,')[1];
+            if (!base64Data) continue;
+            
+            const fileExtension = node.data.mimeType.split('/')[1] || 'png';
+            
+            const baseName = (node.data.label || `image-${node.id}`).replace(/\.[^/.]+$/, "");
+            const sanitizedName = baseName.replace(/[^a-z0-9_-\s]/gi, '_').replace(/\s+/g, '_');
+            
+            const fileName = `${sanitizedName}_${node.id}.${fileExtension}`;
+            
+            imageFolder.file(fileName, base64Data, { base64: true });
+        } catch (err) {
+            console.error(`Could not add ${node.data.label} to zip.`, err);
+        }
+    }
+
+    try {
+        const content = await zip.generateAsync({ type: 'blob' });
+        saveAs(content, `floral_export_${Date.now()}.zip`);
+    } catch(e) {
+        console.error("Error creating zip file", e);
+        if (e instanceof Error) {
+            setError(`Failed to generate zip file: ${e.message}`);
+        } else {
+            setError("An unknown error occurred while creating the zip file.");
+        }
+    }
+}, [imageNodes]);
+
 
   return (
     <div className="w-screen h-screen bg-neutral-950 text-gray-200 font-sans flex flex-col antialiased">
@@ -711,6 +758,8 @@ const App: React.FC = () => {
         canUndo={canUndo}
         canRedo={canRedo}
         tokenUsage={tokenUsage}
+        onDownloadAllClick={handleDownloadAll}
+        imageCount={imageNodes.length}
       />
       <main className="flex-grow flex">
         <ReactFlowProvider>

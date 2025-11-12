@@ -37,7 +37,7 @@ export const GallerySheet: React.FC<GallerySheetProps> = ({ isOpen, onClose, ima
                 <div className="flex flex-col h-full">
                     <div className="flex items-center justify-between p-4 border-b border-neutral-800">
                         <h2 id="gallery-title" className="text-lg font-bold text-gray-200">Image Gallery</h2>
-                        <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none" aria-label="Close gallery">&times;</button>
+                        <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none" aria-label="Close gallery" title="Close">&times;</button>
                     </div>
                     {images.length > 0 ? (
                         <div className="flex-grow p-4 overflow-y-auto">

@@ -1,8 +1,10 @@
+
 import React, { useCallback, useRef, useMemo, useState, useEffect } from 'react';
 import { NodeProps, Handle, Position, useEdges } from 'reactflow';
 import { NodeData, NodeType, AspectRatio } from '../../types';
 import { fileToBase64 } from '../../services/geminiService';
 import { ImageCropModal } from '../ImageCropModal';
+import { CameraModal } from '../CameraModal';
 
 const NodeLoader: React.FC = () => (
     <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
@@ -12,6 +14,10 @@ const NodeLoader: React.FC = () => (
 
 const UploadIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+);
+
+const CameraIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
 );
 
 const DownloadIcon = () => (
@@ -56,6 +62,7 @@ const AspectRatioSelector: React.FC<{ selected: AspectRatio, onSelect: (ar: Aspe
                     key={r}
                     onClick={() => onSelect(r)}
                     className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${selected === r ? 'bg-neutral-300 text-black font-bold' : 'text-neutral-400 hover:bg-neutral-800'}`}
+                    title={`Set aspect ratio to ${r}`}
                 >
                     {r}
                 </button>
@@ -80,6 +87,7 @@ export const ImageNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectab
     const [isCopied, setIsCopied] = useState(false);
     const [isRenaming, setIsRenaming] = useState(false);
     const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+    const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
     const hasIncomingConnection = useMemo(() => edges.some(edge => edge.target === id), [edges, id]);
     const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -121,11 +129,15 @@ export const ImageNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectab
         const link = document.createElement('a');
         link.href = data.content;
         const fileExtension = data.mimeType.split('/')[1] || 'png';
-        link.download = `image-node-${id}.${fileExtension}`;
+
+        const baseName = (data.label || `image-node-${id}`).replace(/\.[^/.]+$/, "");
+        const sanitizedName = baseName.replace(/[^a-z0-9_-\s]/gi, '_').replace(/\s+/g, '_');
+
+        link.download = `${sanitizedName}.${fileExtension}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    }, [data.content, data.mimeType, id]);
+    }, [data.content, data.mimeType, data.label, id]);
 
     const handleGenerate = () => {
         if (data.onGenerate) {
@@ -155,6 +167,17 @@ export const ImageNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectab
     const handleCropSave = (croppedImage: string, newAspectRatio: AspectRatio) => {
         data.onUpdate?.(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, content: croppedImage, mimeType: 'image/png', aspectRatio: newAspectRatio } } : n));
         setIsCropModalOpen(false);
+    };
+
+    const handleCapture = (dataUrl: string) => {
+        if (data.onUpdate) {
+            data.onUpdate((nds) =>
+                nds.map((node) =>
+                    node.id === id ? { ...node, data: { ...node.data, content: dataUrl, mimeType: 'image/png', label: 'Camera Capture' } } : node
+                )
+            );
+            setIsCameraModalOpen(false);
+        }
     };
 
     return (
@@ -226,11 +249,17 @@ export const ImageNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectab
                         </div>
                     ) : (
                         <div className="h-40 flex items-center justify-center p-4 text-center">
-                            <button onClick={handleUploadClick} className="flex flex-col items-center justify-center text-neutral-500 hover:text-white transition-colors p-4 space-y-2">
-                               <UploadIcon />
-                               <span className="text-xs font-medium mt-2">Upload Image</span>
-                               <span className="text-xs text-neutral-600">or connect nodes &amp; generate</span>
-                            </button>
+                            <div className="flex w-full items-center justify-around">
+                                <button onClick={handleUploadClick} className="flex flex-col items-center justify-center text-neutral-500 hover:text-white transition-colors p-4 space-y-2" title="Upload an image from your device">
+                                   <UploadIcon />
+                                   <span className="text-xs font-medium mt-2">Upload File</span>
+                                </button>
+                                <div className="h-24 w-px bg-neutral-700/50"></div>
+                                <button onClick={() => setIsCameraModalOpen(true)} className="flex flex-col items-center justify-center text-neutral-500 hover:text-white transition-colors p-4 space-y-2" title="Use camera">
+                                   <CameraIcon />
+                                   <span className="text-xs font-medium mt-2">Use Camera</span>
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -274,6 +303,11 @@ export const ImageNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectab
                 onSave={handleCropSave}
             />
         )}
+        <CameraModal
+            isOpen={isCameraModalOpen}
+            onClose={() => setIsCameraModalOpen(false)}
+            onCapture={handleCapture}
+        />
         </>
     );
 };

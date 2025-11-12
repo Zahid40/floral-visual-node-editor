@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface HeaderProps {
@@ -12,6 +11,8 @@ interface HeaderProps {
         last: number;
         sessionTotal: number;
     };
+    onDownloadAllClick: () => void;
+    imageCount: number;
 }
 
 const UndoIcon = () => (
@@ -34,12 +35,19 @@ const TokenIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
 );
 
-export const Header: React.FC<HeaderProps> = ({ onShareClick, onGalleryClick, onUndo, onRedo, canUndo, canRedo, tokenUsage }) => {
+const DownloadIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+);
+
+
+export const Header: React.FC<HeaderProps> = ({ onShareClick, onGalleryClick, onUndo, onRedo, canUndo, canRedo, tokenUsage, onDownloadAllClick, imageCount }) => {
     return (
         <header className="py-4 px-6 md:px-8 border-b border-neutral-800 bg-neutral-950/50 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <img src="../logo.svg" alt="Floral Logo" className="h-6" />
+                    <a href="/" title="Floral - Visual Node AI">
+                        <img src="./logo.svg" alt="Floral Logo" className="h-6" />
+                    </a>
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-4">
                      <div className="hidden md:flex items-center space-x-2 p-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm">
@@ -79,9 +87,19 @@ export const Header: React.FC<HeaderProps> = ({ onShareClick, onGalleryClick, on
                      <button 
                         onClick={onShareClick}
                         className="flex items-center space-x-2 px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm font-medium text-gray-300 hover:bg-neutral-800 transition-colors"
+                        title="Share or Import Workflow"
                     >
                         <ShareIcon />
                         <span className="hidden sm:inline">Share</span>
+                    </button>
+                    <button 
+                        onClick={onDownloadAllClick}
+                        disabled={imageCount === 0}
+                        className="flex items-center space-x-2 px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm font-medium text-gray-300 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Download All Images as .zip"
+                    >
+                        <DownloadIcon />
+                        <span className="hidden sm:inline">Download All</span>
                     </button>
                     <a href="https://zahid.vercel.app/" target="_blank" rel="noopener noreferrer" title="Developer Portfolio" className="flex items-center gap-3 text-gray-400 transition-opacity hover:opacity-80">
                         <img src="https://zahid.vercel.app/images/zahid.png" alt="Developer Avatar" className="w-10 h-10 rounded-full border-2 border-neutral-700" />

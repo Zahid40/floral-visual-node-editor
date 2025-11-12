@@ -61,13 +61,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, workflo
             <div className="w-full max-w-2xl bg-[#1C1C1C] border border-[#3A3A3A] rounded-lg shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-4 border-b border-[#3A3A3A]">
                     <h2 id="share-modal-title" className="text-lg font-bold text-gray-200">Share Workflow</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none" aria-label="Close modal">&times;</button>
+                    <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none" aria-label="Close modal" title="Close">&times;</button>
                 </div>
 
                 <div className="p-4 border-b border-[#3A3A3A]">
                     <div className="flex bg-[#111] rounded-lg p-1" role="tablist">
-                        <button onClick={() => setActiveTab('export')} className={`w-1/2 py-2 text-sm font-medium rounded-md ${activeTab === 'export' ? 'bg-[#333] text-white' : 'text-gray-400'}`} role="tab" aria-selected={activeTab === 'export'}>Export</button>
-                        <button onClick={() => setActiveTab('import')} className={`w-1/2 py-2 text-sm font-medium rounded-md ${activeTab === 'import' ? 'bg-[#333] text-white' : 'text-gray-400'}`} role="tab" aria-selected={activeTab === 'import'}>Import</button>
+                        <button onClick={() => setActiveTab('export')} className={`w-1/2 py-2 text-sm font-medium rounded-md ${activeTab === 'export' ? 'bg-[#333] text-white' : 'text-gray-400'}`} role="tab" aria-selected={activeTab === 'export'} title="Switch to Export tab">Export</button>
+                        <button onClick={() => setActiveTab('import')} className={`w-1/2 py-2 text-sm font-medium rounded-md ${activeTab === 'import' ? 'bg-[#333] text-white' : 'text-gray-400'}`} role="tab" aria-selected={activeTab === 'import'} title="Switch to Import tab">Import</button>
                     </div>
                 </div>
 
@@ -83,7 +83,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, workflo
                                     value={workflowJson}
                                     className="w-full h-full bg-[#111111] text-gray-300 text-xs p-3 resize-none focus:outline-none placeholder-gray-600 rounded-md font-mono"
                                 ></textarea>
-                                <button onClick={handleCopy} className="absolute top-2 right-2 p-2 rounded-md text-gray-400 bg-[#333]/50 hover:bg-[#444] hover:text-white transition-colors" aria-label="Copy workflow to clipboard">
+                                <button onClick={handleCopy} className="absolute top-2 right-2 p-2 rounded-md text-gray-400 bg-[#333]/50 hover:bg-[#444] hover:text-white transition-colors" aria-label="Copy workflow to clipboard" title="Copy workflow">
                                     {isCopied ? <CheckIcon /> : <CopyIcon />}
                                 </button>
                             </div>
@@ -102,7 +102,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, workflo
                                 aria-describedby="import-error"
                             ></textarea>
                             {importError && <p id="import-error" className="text-red-400 text-xs mt-2">{importError}</p>}
-                             <button onClick={handleImportClick} className="mt-4 w-full bg-gray-200 hover:bg-white text-black text-sm font-bold py-2 px-4 rounded-md transition-colors">
+                             <button onClick={handleImportClick} className="mt-4 w-full bg-gray-200 hover:bg-white text-black text-sm font-bold py-2 px-4 rounded-md transition-colors" title="Load the pasted workflow onto the canvas">
                                 Load Workflow
                             </button>
                         </div>
