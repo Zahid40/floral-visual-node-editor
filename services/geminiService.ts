@@ -22,7 +22,7 @@ const fileToBase64 = (file: File): Promise<{base64: string, dataUrl: string}> =>
     });
 };
 
-export const generateFromNodes = async (images: Node<NodeData>[], prompt: string, aspectRatio: AspectRatio) => {
+export const generateFromNodes = async (images: Node<NodeData>[], prompt: string, aspectRatio: AspectRatio, seed?: number) => {
     try {
         const parts: ({ text: string } | { inlineData: { data: string; mimeType: string; } })[] = [];
         let effectivePrompt = prompt;
@@ -51,12 +51,18 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
             parts.push(...imageParts, ...textPart);
         }
         
+        const config: { responseModalities: Modality[], seed?: number } = {
+            responseModalities: [Modality.IMAGE],
+        };
+
+        if (seed !== undefined && !isNaN(seed)) {
+            config.seed = seed;
+        }
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
+            config,
         });
         
         for (const part of response.candidates[0].content.parts) {

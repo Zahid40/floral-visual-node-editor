@@ -28,6 +28,8 @@ const Icon: React.FC<{ type: NodeType }> = ({ type }) => {
             return <svg xmlns="http://www.w3.org/2000/svg" className={baseClasses} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>;
         case NodeType.TEXT:
             return <svg xmlns="http://www.w3.org/2000/svg" className={baseClasses} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
+        case NodeType.SEED:
+            return <svg xmlns="http://www.w3.org/2000/svg" className={baseClasses} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9.5L12 12 9.5 14 8 12.5l2.5-2.5L12 8l1.5 1.5z"></path><path d="M12 22a9.97 9.97 0 008.66-5H12V3.34A10 10 0 0012 2a10 10 0 00-10 10c0 4.42 2.87 8.17 6.84 9.5"></path><path d="M19 16c0 2-1.34 4-3 4s-3-2-3-4c0-1.4.9-2.67 2.13-3.34"></path></svg>;
         default:
             return null;
     }
@@ -39,6 +41,7 @@ export const Sidebar: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-400 px-2">Nodes</h2>
             <DraggableNode type={NodeType.IMAGE} label="Image" icon={<Icon type={NodeType.IMAGE}/>} />
             <DraggableNode type={NodeType.TEXT} label="Text Prompt" icon={<Icon type={NodeType.TEXT}/>} />
+            <DraggableNode type={NodeType.SEED} label="Seed" icon={<Icon type={NodeType.SEED}/>} />
         </aside>
     );
 };

@@ -30,6 +30,7 @@ import { ImageNode } from './components/nodes/ImageNode';
 import { TextNode } from './components/nodes/TextNode';
 import { GroupNode } from './components/nodes/GroupNode';
 import { CustomEdge } from './components/edges/CustomEdge';
+import { SeedNode } from './components/nodes/SeedNode';
 
 let id = 0;
 const setIdCounter = (newId: number) => { id = newId; };
@@ -91,6 +92,19 @@ const findUpstreamNodes = (startNodeId: string, allNodes: Node<NodeData>[], allE
     }
   }
   return { images: collectedImageNodes, texts: collectedTextNodes };
+};
+
+const findUpstreamSeedNode = (startNodeId: string, allNodes: Node<NodeData>[], allEdges: Edge[]): Node<NodeData> | null => {
+    const nodesMap = Object.fromEntries(allNodes.map(node => [node.id, node]));
+    const incomingEdges = allEdges.filter(edge => edge.target === startNodeId);
+
+    for (const edge of incomingEdges) {
+        const sourceNode = nodesMap[edge.source];
+        if (sourceNode && sourceNode.type === NodeType.SEED) {
+            return sourceNode;
+        }
+    }
+    return null;
 };
 
 
@@ -268,6 +282,7 @@ const App: React.FC = () => {
     [NodeType.IMAGE]: ImageNode,
     [NodeType.TEXT]: TextNode,
     [NodeType.GROUP]: GroupNode,
+    [NodeType.SEED]: SeedNode,
   }), []);
 
   const edgeTypes = useMemo(() => ({
@@ -369,6 +384,9 @@ const App: React.FC = () => {
           case NodeType.TEXT:
             newNode = { id: getId(), type, position, data: { onUpdate: setNodes, onGenerate: requestGenerate, onDelete: deleteNode, label: 'Text Prompt', content: '', loading: false } };
             break;
+          case NodeType.SEED:
+            newNode = { id: getId(), type, position, data: { onUpdate: setNodes, onDelete: deleteNode, label: 'Seed Generator', seed: Math.floor(Math.random() * 100000), numImages: 4 } };
+            break;
           default:
             return;
         }
@@ -466,7 +484,6 @@ const App: React.FC = () => {
       setError(null);
       const { nodeId, type, options } = generationTrigger;
       
-      // Fix: Correctly spread `n.data` to update the loading state.
       setNodes((nds) => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, loading: true } } : n));
 
       try {
@@ -475,22 +492,71 @@ const App: React.FC = () => {
 
         switch(type) {
             case 'image-generate': {
-                const targetNode = currentNodes.find(n => n.id === nodeId);
+                const targetNode = currentNodes.find((n: Node<NodeData>) => n.id === nodeId);
                 if (!targetNode) throw new Error("Target node not found.");
+
+                const seedNode = findUpstreamSeedNode(nodeId, currentNodes, currentEdges);
+
                 const includeSelf = !!targetNode.data.content && targetNode.type === NodeType.IMAGE;
                 const { images, texts } = findUpstreamNodes(nodeId, currentNodes, currentEdges, includeSelf);
-
                 const validTexts = texts.filter(n => n.data.content?.trim());
                 const prompt = validTexts.map(n => n.data.content!.trim()).join(' ');
 
                 if (images.length === 0 && validTexts.length === 0) {
                     throw new Error('Please connect at least one Image or Text node to generate an image.');
                 }
-                const aspectRatio = options.aspectRatio || '1:1';
-                const { b64, mimeType, usageMetadata } = await generateFromNodes(images, prompt, aspectRatio);
-                setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, content: `data:${mimeType};base64,${b64}`, mimeType, aspectRatio } } : node));
-                if (usageMetadata?.totalTokenCount) {
-                  setTokenUsage(prev => ({ last: usageMetadata.totalTokenCount, sessionTotal: prev.sessionTotal + usageMetadata.totalTokenCount }));
+                const aspectRatio = options.aspectRatio || targetNode.data.aspectRatio || '1:1';
+                
+                if (seedNode) {
+                    const startSeed = seedNode.data.seed ?? Math.floor(Math.random() * 100000);
+                    const numImages = Math.max(1, Math.min(10, seedNode.data.numImages ?? 1));
+
+                    const generationPromises = Array.from({ length: numImages }).map((_, i) => {
+                        const currentSeed = startSeed + i;
+                        return generateFromNodes(images, prompt, aspectRatio, currentSeed);
+                    });
+                    
+                    const results = await Promise.all(generationPromises);
+                    let totalTokens = 0;
+                    const newNodes: Node<NodeData>[] = [];
+
+                    results.forEach(({ b64, mimeType, usageMetadata }, i) => {
+                        totalTokens += usageMetadata?.totalTokenCount || 0;
+                        
+                        const newPosition = {
+                           x: targetNode.position.x + 360 + ((i % 2) * 360),
+                           y: targetNode.position.y + (Math.floor(i/2) * 380)
+                        };
+
+                        newNodes.push({
+                            id: getId(),
+                            type: NodeType.IMAGE,
+                            position: newPosition,
+                            data: {
+                                onUpdate: setNodes,
+                                onGenerate: requestGenerate,
+                                onPreview: handlePreviewImage,
+                                onDelete: deleteNode,
+                                label: `${targetNode.data.label || 'Image'} (Seed: ${startSeed + i})`,
+                                content: `data:${mimeType};base64,${b64}`,
+                                mimeType,
+                                aspectRatio,
+                                loading: false,
+                            },
+                        });
+                    });
+
+                    setNodes(nds => [...nds, ...newNodes]);
+                    if (totalTokens > 0) {
+                        setTokenUsage(prev => ({ last: totalTokens, sessionTotal: prev.sessionTotal + totalTokens }));
+                    }
+
+                } else {
+                    const { b64, mimeType, usageMetadata } = await generateFromNodes(images, prompt, aspectRatio);
+                    setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, content: `data:${mimeType};base64,${b64}`, mimeType, aspectRatio } } : node));
+                    if (usageMetadata?.totalTokenCount) {
+                      setTokenUsage(prev => ({ last: usageMetadata.totalTokenCount, sessionTotal: prev.sessionTotal + usageMetadata.totalTokenCount }));
+                    }
                 }
                 break;
             }
@@ -549,6 +615,11 @@ const App: React.FC = () => {
             serializableData.content = data.content;
         }
 
+        if (type === NodeType.SEED) {
+            serializableData.seed = data.seed;
+            serializableData.numImages = data.numImages;
+        }
+
         return {
             id, type, position, data: serializableData,
             ...(width && { width }),
@@ -592,17 +663,22 @@ const App: React.FC = () => {
             }
 
             const isGroup = node.type === NodeType.GROUP;
+            const isSeed = node.type === NodeType.SEED;
 
             return {
                 ...node,
                 data: {
                     ...node.data,
                     onUpdate: setNodes,
-                    onGenerate: isGroup ? undefined : requestGenerate,
-                    onPreview: isGroup ? undefined : handlePreviewImage,
+                    onGenerate: (isGroup || isSeed) ? undefined : requestGenerate,
+                    onPreview: (isGroup || isSeed) ? undefined : handlePreviewImage,
                     onDelete: deleteNode,
                     onUngroup: isGroup ? handleUngroup : undefined,
                     loading: false,
+                    ...(isSeed && {
+                        seed: Number(node.data.seed) || undefined,
+                        numImages: Number(node.data.numImages) || undefined,
+                    })
                 },
             };
         }).filter((n: Node<NodeData> | null): n is Node<NodeData> => n !== null);
@@ -797,6 +873,7 @@ const App: React.FC = () => {
                           case NodeType.GROUP: return '#52525b';
                           case NodeType.IMAGE: return '#ca8a04';
                           case NodeType.TEXT: return '#10b981';
+                          case NodeType.SEED: return '#7c3aed';
                           default: return '#e5e5e5';
                       }
                   }}

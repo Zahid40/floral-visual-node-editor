@@ -8,6 +8,7 @@ export enum NodeType {
     IMAGE = 'imageNode',
     TEXT = 'textNode',
     GROUP = 'groupNode',
+    SEED = 'seedNode',
 }
 
 export type GenerationRequestType = 'image-generate' | 'prompt-from-image' | 'output' | 'enhance-prompt';
@@ -24,6 +25,8 @@ export interface NodeData {
     mimeType?: string | null;
     aspectRatio?: AspectRatio;
     loading?: boolean;
+    seed?: number;
+    numImages?: number;
     onUpdate?: React.Dispatch<React.SetStateAction<Node<NodeData, string | undefined>[]>>;
     onGenerate?: (nodeId: string, type: GenerationRequestType, options?: any) => void;
     onPreview?: (src: string) => void;
