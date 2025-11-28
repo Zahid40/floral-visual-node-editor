@@ -1,8 +1,10 @@
+
 import React from 'react';
 
 interface HeaderProps {
     onShareClick: () => void;
     onGalleryClick: () => void;
+    onSettingsClick: () => void;
     onUndo: () => void;
     onRedo: () => void;
     canUndo: boolean;
@@ -39,8 +41,12 @@ const DownloadIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
 );
 
+const SettingsIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+);
 
-export const Header: React.FC<HeaderProps> = ({ onShareClick, onGalleryClick, onUndo, onRedo, canUndo, canRedo, tokenUsage, onDownloadAllClick, imageCount }) => {
+
+export const Header: React.FC<HeaderProps> = ({ onShareClick, onGalleryClick, onSettingsClick, onUndo, onRedo, canUndo, canRedo, tokenUsage, onDownloadAllClick, imageCount }) => {
     return (
         <header className="py-4 px-6 md:px-8 border-b border-neutral-800 bg-neutral-950/50 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto flex items-center justify-between">
@@ -83,6 +89,14 @@ export const Header: React.FC<HeaderProps> = ({ onShareClick, onGalleryClick, on
                     >
                         <GalleryIcon />
                         <span className="hidden sm:inline">Gallery</span>
+                    </button>
+                    <button 
+                        onClick={onSettingsClick}
+                        className="flex items-center space-x-2 px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm font-medium text-gray-300 hover:bg-neutral-800 transition-colors"
+                        title="Settings"
+                    >
+                        <SettingsIcon />
+                        <span className="hidden sm:inline">Settings</span>
                     </button>
                      <button 
                         onClick={onShareClick}

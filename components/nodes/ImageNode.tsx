@@ -4,7 +4,7 @@ import { NodeProps, Handle, Position, useEdges } from 'reactflow';
 import { NodeData, NodeType, AspectRatio } from '../../types';
 import { fileToBase64 } from '../../services/geminiService';
 import { ImageCropModal } from '../ImageCropModal';
-import { CameraModal } from '../CameraModal';
+import { CameraModal } from '../CameraModal'; 
 
 const NodeLoader: React.FC = () => (
     <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
@@ -232,7 +232,7 @@ export const ImageNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectab
                     {data.content ? (
                         <div className="p-2">
                              <div
-                                className="relative w-full bg-black rounded-md cursor-pointer group"
+                                className="relative w-full bg-black rounded-md cursor-pointer group overflow-hidden"
                                 style={{ paddingTop: aspectRatioToPadding[data.aspectRatio || '1:1'] }}
                                 onClick={() => data.onPreview && data.content && data.onPreview(data.content)}
                                 title="Click to preview image"
@@ -240,7 +240,7 @@ export const ImageNode: React.FC<NodeProps<NodeData>> = ({ id, data, isConnectab
                                 <img
                                     src={data.content}
                                     alt="Node content"
-                                    className="absolute top-0 left-0 w-full h-full object-contain"
+                                    className="absolute top-0 left-0 w-full h-full object-contain transition-transform duration-300 ease-in-out group-hover:scale-105"
                                 />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>

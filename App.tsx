@@ -15,6 +15,7 @@ import ReactFlow, {
   applyEdgeChanges,
   BackgroundVariant,
   MiniMap,
+  CoordinateExtent,
 } from 'reactflow';
 import JSZip from 'jszip';
 import saveAs from 'file-saver';
@@ -22,29 +23,22 @@ import saveAs from 'file-saver';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { ShareModal } from './components/ShareModal';
+import { SettingsModal } from './components/SettingsModal';
 import { GallerySheet } from './components/GallerySheet';
+import { ImagePreviewModal } from './components/ImagePreviewModal';
 import { Controls } from './components/Controls';
-import { generateFromNodes, generatePromptFromImage, fileToBase64, enhancePrompt } from './services/geminiService';
+import { generateFromNodes, generatePromptFromImage, fileToBase64, enhancePrompt, generateVideo } from './services/geminiService';
 import { NodeData, NodeType, GenerationRequest, GenerationRequestType, AspectRatio } from './types';
 import { ImageNode } from './components/nodes/ImageNode';
 import { TextNode } from './components/nodes/TextNode';
 import { GroupNode } from './components/nodes/GroupNode';
 import { CustomEdge } from './components/edges/CustomEdge';
 import { SeedNode } from './components/nodes/SeedNode';
+import { VideoNode } from './components/nodes/VideoNode';
 
 let id = 0;
 const setIdCounter = (newId: number) => { id = newId; };
 const getId = () => `dnd-node_${id++}`;
-
-type FlowState = {
-  nodes: Node<NodeData>[];
-  edges: Edge[];
-};
-
-interface ImagePreviewModalProps {
-    src: string;
-    onClose: () => void;
-}
 
 const findUpstreamNodes = (startNodeId: string, allNodes: Node<NodeData>[], allEdges: Edge[], includeSelf: boolean = false): { images: Node<NodeData>[], texts: Node<NodeData>[] } => {
   const collectedImageNodes: Node<NodeData>[] = [];
@@ -107,33 +101,6 @@ const findUpstreamSeedNode = (startNodeId: string, allNodes: Node<NodeData>[], a
     return null;
 };
 
-
-const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ src, onClose }) => {
-    return (
-        <div 
-            className="fixed inset-0 bg-black/80 backdrop-blur-lg z-[200] flex items-center justify-center p-4 sm:p-8" 
-            onClick={onClose} 
-            role="dialog" 
-            aria-modal="true"
-        >
-            <button 
-                onClick={onClose} 
-                className="absolute top-4 right-4 text-white text-4xl leading-none hover:text-gray-300 transition-colors"
-                aria-label="Close image preview"
-            >
-                &times;
-            </button>
-            <div className="relative max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
-                <img 
-                    src={src} 
-                    alt="Image Preview" 
-                    className="block max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl shadow-black/50"
-                />
-            </div>
-        </div>
-    );
-};
-
 const App: React.FC = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
@@ -142,13 +109,20 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [generationTrigger, setGenerationTrigger] = useState<GenerationRequest | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [imageModel, setImageModel] = useState<string>('gemini-2.5-flash-image');
+  const [videoModel, setVideoModel] = useState<string>('veo-3.1-fast-generate-preview');
   const copyingNodeRef = useRef<Node<NodeData> | null>(null);
   const [tokenUsage, setTokenUsage] = useState({ last: 0, sessionTotal: 0 });
 
   // Undo/Redo state
+  type FlowState = {
+    nodes: Node<NodeData>[];
+    edges: Edge[];
+  };
   const [history, setHistory] = useState<FlowState[]>([{ nodes: [], edges: [] }]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const isRestoringRef = useRef(false);
@@ -163,7 +137,6 @@ const App: React.FC = () => {
       const nodeToDelete = currentNodes.find((n) => n.id === idToDelete);
       let idsToDelete = new Set([idToDelete]);
 
-      // If it's a group, also mark its children for deletion
       if (nodeToDelete && nodeToDelete.type === NodeType.GROUP) {
         currentNodes.forEach((n) => {
           if (n.parentNode === idToDelete) {
@@ -204,7 +177,6 @@ const App: React.FC = () => {
   }, [nodes, setNodes]);
 
 
-  // Save current flow state to history
   useEffect(() => {
     if (isRestoringRef.current) {
         isRestoringRef.current = false;
@@ -250,7 +222,6 @@ const App: React.FC = () => {
     }
   }, [canRedo, history, historyIndex, setNodes, setEdges]);
 
-  // Keyboard shortcuts for undo/redo
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
         const target = event.target as HTMLElement;
@@ -283,6 +254,7 @@ const App: React.FC = () => {
     [NodeType.TEXT]: TextNode,
     [NodeType.GROUP]: GroupNode,
     [NodeType.SEED]: SeedNode,
+    [NodeType.VIDEO]: VideoNode,
   }), []);
 
   const edgeTypes = useMemo(() => ({
@@ -373,7 +345,6 @@ const App: React.FC = () => {
         y: event.clientY - reactFlowBounds.top,
       });
       
-      // 1. Check for node drop from sidebar
       const type = event.dataTransfer.getData('application/reactflow') as NodeType;
       if (type) {
         let newNode: Node<NodeData>;
@@ -387,6 +358,9 @@ const App: React.FC = () => {
           case NodeType.SEED:
             newNode = { id: getId(), type, position, data: { onUpdate: setNodes, onDelete: deleteNode, label: 'Seed Generator', seed: Math.floor(Math.random() * 100000), numImages: 4 } };
             break;
+          case NodeType.VIDEO:
+             newNode = { id: getId(), type, position, data: { onUpdate: setNodes, onGenerate: requestGenerate, onDelete: deleteNode, label: 'Video', content: null, mimeType: null, aspectRatio: '16:9', loading: false } };
+             break;
           default:
             return;
         }
@@ -394,7 +368,6 @@ const App: React.FC = () => {
         return;
       }
       
-      // 2. Check for file drop
       if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
         const file = event.dataTransfer.files[0];
         if (file.type.startsWith('image/')) {
@@ -416,7 +389,6 @@ const App: React.FC = () => {
         }
     }
 
-    // 3. Check for text drop
     const text = event.dataTransfer.getData('text/plain');
     if (text) {
         const newNode: Node<NodeData> = {
@@ -513,7 +485,7 @@ const App: React.FC = () => {
 
                     const generationPromises = Array.from({ length: numImages }).map((_, i) => {
                         const currentSeed = startSeed + i;
-                        return generateFromNodes(images, prompt, aspectRatio, currentSeed);
+                        return generateFromNodes(imageModel, images, prompt, aspectRatio, currentSeed);
                     });
                     
                     const results = await Promise.all(generationPromises);
@@ -552,13 +524,34 @@ const App: React.FC = () => {
                     }
 
                 } else {
-                    const { b64, mimeType, usageMetadata } = await generateFromNodes(images, prompt, aspectRatio);
+                    const { b64, mimeType, usageMetadata } = await generateFromNodes(imageModel, images, prompt, aspectRatio);
                     setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, content: `data:${mimeType};base64,${b64}`, mimeType, aspectRatio } } : node));
                     if (usageMetadata?.totalTokenCount) {
                       setTokenUsage(prev => ({ last: usageMetadata.totalTokenCount, sessionTotal: prev.sessionTotal + usageMetadata.totalTokenCount }));
                     }
                 }
                 break;
+            }
+            case 'video-generate': {
+                 const targetNode = currentNodes.find((n: Node<NodeData>) => n.id === nodeId);
+                 if (!targetNode) throw new Error("Target node not found.");
+                 const { images, texts } = findUpstreamNodes(nodeId, currentNodes, currentEdges);
+                 const validTexts = texts.filter(n => n.data.content?.trim());
+                 const prompt = validTexts.map(n => n.data.content!.trim()).join(' ');
+                 const aspectRatio = options.aspectRatio || '16:9';
+
+                 // Video generation typically uses one reference image if available + prompt
+                 const referenceImage = images.length > 0 ? images[0] : undefined;
+
+                 if (!prompt && !referenceImage) {
+                    throw new Error("Please connect a Text node or an Image node to generate a video.");
+                 }
+
+                 const { dataUrl, mimeType } = await generateVideo(videoModel, prompt, referenceImage, aspectRatio);
+                 
+                 setNodes((nds) => nds.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, content: dataUrl, mimeType, aspectRatio } } : node));
+                 // Note: Veo operations don't easily return token usage in the same way, skipping token update for now or could estimate.
+                 break;
             }
             case 'prompt-from-image': {
                 const { images } = findUpstreamNodes(nodeId, currentNodes, currentEdges);
@@ -602,7 +595,7 @@ const App: React.FC = () => {
     };
 
     runGeneration();
-  }, [generationTrigger, reactFlowInstance, setNodes]);
+  }, [generationTrigger, reactFlowInstance, setNodes, imageModel, videoModel]);
 
   const exportWorkflow = useCallback((): string => {
     const serializableNodes = nodes.map(({ id, type, position, data, width, height, parentNode, style }) => {
@@ -664,6 +657,7 @@ const App: React.FC = () => {
 
             const isGroup = node.type === NodeType.GROUP;
             const isSeed = node.type === NodeType.SEED;
+            const isVideo = node.type === NodeType.VIDEO;
 
             return {
                 ...node,
@@ -671,7 +665,7 @@ const App: React.FC = () => {
                     ...node.data,
                     onUpdate: setNodes,
                     onGenerate: (isGroup || isSeed) ? undefined : requestGenerate,
-                    onPreview: (isGroup || isSeed) ? undefined : handlePreviewImage,
+                    onPreview: (isGroup || isSeed || isVideo) ? undefined : handlePreviewImage,
                     onDelete: deleteNode,
                     onUngroup: isGroup ? handleUngroup : undefined,
                     loading: false,
@@ -746,7 +740,7 @@ const App: React.FC = () => {
             return {
                 ...node,
                 parentNode: groupId,
-                extent: 'parent',
+                extent: 'parent' as const,
                 position: {
                     x: node.position.x - groupPosition.x,
                     y: node.position.y - groupPosition.y,
@@ -829,6 +823,7 @@ const App: React.FC = () => {
       <Header 
         onShareClick={() => setIsShareModalOpen(true)}
         onGalleryClick={() => setIsGalleryOpen(true)}
+        onSettingsClick={() => setIsSettingsModalOpen(true)}
         onUndo={undo}
         onRedo={redo}
         canUndo={canUndo}
@@ -874,6 +869,7 @@ const App: React.FC = () => {
                           case NodeType.IMAGE: return '#ca8a04';
                           case NodeType.TEXT: return '#10b981';
                           case NodeType.SEED: return '#7c3aed';
+                          case NodeType.VIDEO: return '#ec4899';
                           default: return '#e5e5e5';
                       }
                   }}
@@ -894,6 +890,14 @@ const App: React.FC = () => {
         onClose={() => setIsShareModalOpen(false)}
         workflowJson={exportWorkflow()}
         onImport={importWorkflow}
+      />
+      <SettingsModal 
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        imageModel={imageModel}
+        onImageModelChange={setImageModel}
+        videoModel={videoModel}
+        onVideoModelChange={setVideoModel}
       />
       <GallerySheet
         isOpen={isGalleryOpen}

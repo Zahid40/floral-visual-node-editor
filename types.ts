@@ -9,9 +9,10 @@ export enum NodeType {
     TEXT = 'textNode',
     GROUP = 'groupNode',
     SEED = 'seedNode',
+    VIDEO = 'videoNode',
 }
 
-export type GenerationRequestType = 'image-generate' | 'prompt-from-image' | 'output' | 'enhance-prompt';
+export type GenerationRequestType = 'image-generate' | 'video-generate' | 'prompt-from-image' | 'output' | 'enhance-prompt';
 
 export interface GenerationRequest {
     nodeId: string;

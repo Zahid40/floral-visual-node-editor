@@ -3,11 +3,12 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { AspectRatio, NodeData } from '../types';
 import { Node } from 'reactflow';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAiClient = () => {
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable not set. Please select an API Key.");
+  }
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 const fileToBase64 = (file: File): Promise<{base64: string, dataUrl: string}> => {
     return new Promise((resolve, reject) => {
@@ -22,21 +23,59 @@ const fileToBase64 = (file: File): Promise<{base64: string, dataUrl: string}> =>
     });
 };
 
-export const generateFromNodes = async (images: Node<NodeData>[], prompt: string, aspectRatio: AspectRatio, seed?: number) => {
+const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+             const base64data = reader.result as string;
+             resolve(base64data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+};
+
+export const generateFromNodes = async (model: string, images: Node<NodeData>[], prompt: string, aspectRatio: AspectRatio, seed?: number) => {
+    const ai = getAiClient();
     try {
+        // Imagen 3 logic
+        if (model.includes('imagen')) {
+             if (images.length > 0) {
+                 console.warn("Imagen models do not natively support image-to-image in this interface. Ignoring image inputs.");
+             }
+             if (!prompt) {
+                 throw new Error("A text prompt is required for Imagen generation.");
+             }
+
+             const response = await ai.models.generateImages({
+                model,
+                prompt,
+                config: {
+                    numberOfImages: 1,
+                    outputMimeType: 'image/jpeg',
+                    aspectRatio: aspectRatio,
+                },
+            });
+            
+            const b64 = response.generatedImages[0].image.imageBytes;
+            return { b64, mimeType: 'image/jpeg', usageMetadata: undefined };
+        }
+
+        // Gemini Logic (2.5 Flash, 3 Pro)
         const parts: ({ text: string } | { inlineData: { data: string; mimeType: string; } })[] = [];
         let effectivePrompt = prompt;
 
         if (images.length === 0) {
-            // Text-to-image generation
             if (!prompt) {
                 throw new Error("A text prompt is required for image generation.");
             }
-            // Add aspect ratio to prompt for Nano Banana
-            effectivePrompt = `${prompt}, aspect ratio ${aspectRatio}`;
-            parts.push({ text: effectivePrompt });
+            if (model.includes('flash')) {
+                 effectivePrompt = `${prompt}, aspect ratio ${aspectRatio}`;
+                 parts.push({ text: effectivePrompt });
+            } else {
+                 parts.push({ text: prompt });
+            }
         } else {
-            // Multi-modal generation (image + text, or image + image)
             if (images.length > 1 && !prompt) {
                 effectivePrompt = "Merge these images into a single, cohesive, professional-looking photograph. Blend the elements, styles, and subjects naturally.";
             }
@@ -51,7 +90,7 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
             parts.push(...imageParts, ...textPart);
         }
         
-        const config: { responseModalities: Modality[], seed?: number } = {
+        const config: any = {
             responseModalities: [Modality.IMAGE],
         };
 
@@ -59,8 +98,14 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
             config.seed = seed;
         }
 
+        if (model.includes('pro-image')) {
+            config.imageConfig = {
+                aspectRatio: aspectRatio,
+            };
+        }
+
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: model,
             contents: { parts },
             config,
         });
@@ -81,8 +126,73 @@ export const generateFromNodes = async (images: Node<NodeData>[], prompt: string
     }
 };
 
+export const generateVideo = async (model: string, prompt: string, image?: Node<NodeData>, aspectRatio: AspectRatio = '16:9') => {
+    const ai = getAiClient();
+    try {
+        if (!prompt && !image) {
+             throw new Error("A text prompt or an image is required for video generation.");
+        }
+
+        // Veo only supports 16:9 and 9:16
+        const safeAspectRatio = (aspectRatio === '9:16' || aspectRatio === '16:9') ? aspectRatio : '16:9';
+        
+        const config: any = {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: safeAspectRatio,
+        };
+
+        const params: any = {
+            model: model,
+            prompt: prompt || "Generate a video", // Prompt is technically optional if image provided for some models, but usually required.
+            config,
+        };
+
+        if (image && image.data.content && image.data.mimeType) {
+            params.image = {
+                imageBytes: image.data.content.split(',')[1],
+                mimeType: image.data.mimeType,
+            };
+        }
+
+        let operation = await ai.models.generateVideos(params);
+
+        // Polling loop
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            operation = await ai.operations.getVideosOperation({operation: operation});
+        }
+
+        if (operation.error) {
+            throw new Error(`Video generation failed: ${operation.error.message}`);
+        }
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) {
+            throw new Error("No video URI returned.");
+        }
+
+        // Fetch the video content
+        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+        if (!videoResponse.ok) {
+            throw new Error(`Failed to download video: ${videoResponse.statusText}`);
+        }
+
+        const videoBlob = await videoResponse.blob();
+        const base64DataUrl = await blobToBase64(videoBlob);
+        
+        // Video ops don't return standard usage metadata in the op response usually
+        return { dataUrl: base64DataUrl, mimeType: 'video/mp4' };
+
+    } catch (error) {
+         console.error("Error generating video:", error);
+         if (error instanceof Error) throw error;
+         throw new Error("Failed to generate video.");
+    }
+};
 
 export const generatePromptFromImage = async (image: Node<NodeData>) => {
+    const ai = getAiClient();
     if (!image.data.content || !image.data.mimeType) {
         throw new Error("Image data is missing for prompt generation.");
     }
@@ -105,6 +215,7 @@ export const generatePromptFromImage = async (image: Node<NodeData>) => {
 };
 
 export const enhancePrompt = async (prompt: string) => {
+    const ai = getAiClient();
     if (!prompt.trim()) {
         return { enhanced: "", usageMetadata: { totalTokenCount: 0 }};
     }
